@@ -1,6 +1,6 @@
 /**
  * @project     OTRS (http://www.otrs.org) - Agent Frontend
- * @version     $Revision: 1.19.2.1 $
+ * @version     $Revision: 1.19.2.2 $
  * @copyright   OTRS AG
  * @license     AGPL (http://www.gnu.org/licenses/agpl.txt)
  */
@@ -186,6 +186,7 @@ ul#ProcessElements li.AccordionElement div.Content .ProcessElementButton {
     width: 200px;
     opacity: 0.9;
     position: absolute;
+    z-index: 101;
 }
 
 #DiagramTooltip h4 {
@@ -229,12 +230,12 @@ ul#ProcessElements li.AccordionElement div.Content .ProcessElementButton {
     margin-top: -3px;
 }
 
-#DiagramDeleteLink {
+.DiagramDeleteLink {
     position: absolute;
     display: none;
 }
 
-#DiagramDeleteLink a {
+.DiagramDeleteLink a {
     background: #FFFFFF;
     border: 1px solid #AAAAAA;
     border-radius: 13px;
@@ -249,7 +250,7 @@ ul#ProcessElements li.AccordionElement div.Content .ProcessElementButton {
     color: #aaa;
 }
 
-#DiagramDeleteLink a:hover {
+.DiagramDeleteLink a:hover {
     color: #FF9922;
 }
 
@@ -267,22 +268,62 @@ ul#ProcessElements li.AccordionElement div.Content .ProcessElementButton {
     border-radius: 15px;
     background-color: #fff;
     position: absolute;
+    z-index: 100;
 }
 
 #Canvas .Activity {
     width: 110px;
     height: 80px;
-    background-color: #fff;
-    border: 1px solid #444;
+    background-color: #e5e5e5;
+    border: 1px solid #949494;
     -moz-border-radius: 10px;
     -webkit-border-radius: 10px;
     border-radius: 10px;
     position: absolute;
     z-index: 100;
+    cursor: move;
 }
 
-.Endpoint {
+#Canvas .Activity.Highlighted {
+    border-color: red;
+    box-shadow: 1px 1px 3px red;
+    z-index: 999;
+}
 
+#Canvas .Activity span {
+    display: block;
+    text-align: center;
+    margin-top: 32px;
+    font-size: 11px;
+}
+
+#Canvas .Activity .Icon {
+    display: none;
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 50%;
+    top: 50%;
+    margin-top: -8px;
+    margin-left: -8px;
+}
+
+#Canvas .Activity .Loader {
+    background: url(../img/loader.gif) no-repeat center;
+}
+
+#Canvas .Activity .Success {
+    background: url(../img/icons/tick.png) no-repeat center;
+}
+
+#Canvas .Activity#Dummy {
+    visibility: hidden;
+}
+
+#Canvas .Activity .DiagramDeleteLink {
+    position: absolute;
+    top: -10px;
+    right: -10px;
 }
 
 .EndpointHover {

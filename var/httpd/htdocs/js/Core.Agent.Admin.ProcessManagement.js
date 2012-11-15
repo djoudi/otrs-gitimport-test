@@ -2,7 +2,7 @@
 // Core.Agent.Admin.ProcessManagement.js - provides the special module functions for the Process Management.
 // Copyright (C) 2001-2012 OTRS AG, http://otrs.org/
 // --
-// $Id: Core.Agent.Admin.ProcessManagement.js,v 1.58 2012-11-07 13:53:06 mab Exp $
+// $Id: Core.Agent.Admin.ProcessManagement.js,v 1.58.2.1 2012-11-15 22:25:23 mab Exp $
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -297,18 +297,16 @@ Core.Agent.Admin.ProcessManagement = (function (TargetNS) {
             $.each(Path, function (Key, Value) {
                 var Activity = Key,
                     ActivityPosition = TargetNS.ProcessLayout[Key];
-
                 if (
-                        Position.left > ActivityPosition.left &&
-                        Position.left < ActivityPosition.left + 110 &&
-                        Position.top > ActivityPosition.top &&
-                        Position.top < ActivityPosition.top + 80
+                        Position.left > parseInt(ActivityPosition.left, 10) &&
+                        Position.left < parseInt(ActivityPosition.left, 10) + 110 &&
+                        Position.top > parseInt(ActivityPosition.top, 10) &&
+                        Position.top < parseInt(ActivityPosition.top, 10) + 80
                     ) {
                     ActivityMatch = Key;
-                    return;
+                    return false;
                 }
             });
-
             return ActivityMatch;
         }
 
@@ -323,7 +321,6 @@ Core.Agent.Admin.ProcessManagement = (function (TargetNS) {
                 // If yes, add the Dialog to the Activity
                 // if not, just cancel
                 Activity = CheckIfMousePositionIsOverActivity(Position);
-
                 if (Activity) {
                     // Remove Label, show Loader
                     TargetNS.Canvas.ShowActivityLoader(Activity);
@@ -385,13 +382,10 @@ Core.Agent.Admin.ProcessManagement = (function (TargetNS) {
 
                 if (Activity) {
                     // Create dummy activity to use for initial transition
-                    TargetNS.Canvas.CreateActivityDummy(100, 100);
+                    TargetNS.Canvas.CreateActivityDummy();
 
                     // Create transition between this Activity and DummyElement
                     TargetNS.Canvas.CreateTransition(Activity, 'Dummy', EntityID);
-
-                    // Remove Connection to DummyElement and delete DummyElement again
-                    TargetNS.Canvas.RemoveActivityDummy();
 
                     // Add Transition to Path
                     if (typeof Path[Activity] === 'undefined') {
@@ -1151,7 +1145,6 @@ Core.Agent.Admin.ProcessManagement = (function (TargetNS) {
 
         return Conditions;
     };
-
 
     TargetNS.UpdateConfig = function (Config) {
         if (typeof Config === 'undefined') {

@@ -2,7 +2,7 @@
 // Core.Agent.Admin.ProcessManagement.Canvas.js - provides the special module functions for the Process Management Diagram Canvas.
 // Copyright (C) 2001-2012 OTRS AG, http://otrs.org/
 // --
-// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.1 2012-11-13 14:07:23 mn Exp $
+// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.2 2012-11-15 22:25:23 mab Exp $
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -30,7 +30,17 @@ Core.Agent.Admin.ProcessManagement = Core.Agent.Admin.ProcessManagement || {};
 Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
 
     var Elements = {},
-        ElementList = [];
+        ElementList = [],
+        stateMachineConnector = {
+            connector: 'StateMachine',
+            paintStyle: { lineWidth: 2, strokeStyle: '#aaa' },
+            hoverPaintStyle: { strokeStyle: '#dbe300' },
+            endpoint: [ 'Dot', { cssClass: 'Endpoint', hoverClass: 'EndpointHover' } ],
+            endpointStyle: { fillStyle: '#aaa'  },
+            overlays: [ [ 'Arrow', { position: 0.75, width: 15, length: 10 } ] ],
+            anchor: 'Continuous',
+            reattach: true
+        };
 
     function TransitionDblClick(Transition) {
         var ProcessEntityID = $('#ProcessEntityID').val(),
@@ -86,36 +96,6 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
         };
     }
 
-    function InitObjectMoving() {
-        var MovingTimer;
-        // bind object moving event to all elements (only connected Elements aka Joints).
-        // Every move causes a redraw after which we need a new initialization
-
-        if (typeof JointObject !== 'undefined') {
-            JointObject.registerCallback('objectMoving', function (SingleJointObject) {
-                // Event fires very often, so use a timer to reduce the number of function executions
-                if (typeof MovingTimer !== 'undefined') {
-                    window.clearTimeout(MovingTimer);
-                }
-
-                MovingTimer = window.setTimeout(function () {
-                    // Re-Initialize DblClick
-                    if (JointObject && JointObject._registeredObjects) {
-                        $.each(JointObject._registeredObjects, function (Key, Value) {
-                            if (typeof Value.initTransitionDblClick !== 'undefined') {
-                                Value.initTransitionDblClick(SingleJointObject, TransitionDblClick);
-                            }
-                        });
-                    }
-                }, 100);
-            });
-        }
-    }
-
-    function ChangeTransitionColor(TransitionObject, Color) {
-        TransitionObject._opt.attrs.stroke = Color;
-    }
-
     TargetNS.CreateStartEvent = function (PosX, PosY) {
         var DefaultX = 30,
             DefaultY = 30;
@@ -131,144 +111,290 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
 
     TargetNS.CreateActivity = function (EntityID, EntityName, ActivityID, PosX, PosY) {
 
+        var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
+            ProcessEntityID = $('#ProcessEntityID').val();
+
         $('#Canvas')
-            .append('<div class="Activity" id="' + EntityID + '"><span>' + EntityName + '</span></div>')
+            .append('<div class="Activity" id="' + EntityID + '"><span>' + EntityName + '</span><div class="Icon Loader"></div><div class="Icon Success"></div></div>')
             .find('#' + EntityID)
             .css({
                 'top' : PosY + 'px',
                 'left': PosX + 'px'
             })
+            .bind('mouseenter.Activity', function() {
+                TargetNS.ShowActivityTooltip($(this));
+                TargetNS.ShowActivityDeleteButton($(this));
+            })
+            .bind('mouseleave.Activity', function() {
+                $('#DiagramTooltip').hide();
+                $(this).find('.DiagramDeleteLink').remove();
+            })
             .bind('dblclick.Activity', function() {
-                var Path = Core.Config.Get('Config.PopupPathActivity') + ";EntityID=" + EntityID + ";ID=" + ActivityID;
+                var Path = Core.Config.Get('Config.PopupPathActivity') + "EntityID=" + EntityID + ";ID=" + ActivityID;
                 Core.Agent.Admin.ProcessManagement.ShowOverlay();
                 Core.UI.Popup.OpenPopup(Path, 'Activity');
-            }
-        );
+            });
 
-        var endpointOptions = {
-            isTarget:true,
-            deleteEndpointsOnDetach: false
-        };
-        jsPlumb.makeTarget(EntityID, endpointOptions);
+        // make the activity able to accept transitions
+        jsPlumb.makeTarget(EntityID, {
+            anchor: 'Continuous',
+            isTarget: true,
+            detachable: true,
+            reattach: true,
+            endpoint: [ 'Dot', { hoverClass: 'EndpointHover' } ],
+            endpointStyle: { fillStyle: "#777" },
+            parameters: {
+                'Parent': EntityID,
+            },
+        });
 
         Elements[EntityID] = $('#' + EntityID);
 
         /*
-        Elements[EntityID] = BPMN.Activity.create({
-            position: {x: PosX, y: PosY},
-            label: EntityName,
-            id: EntityID,
-            dblClickFunction: function() {
-                var Path = Core.Config.Get('Config.PopupPathActivity') + ";EntityID=" + EntityID + ";ID=" + ActivityID;
-                Core.Agent.Admin.ProcessManagement.ShowOverlay();
-                Core.UI.Popup.OpenPopup(Path, 'Activity');
-            }
-        });
-
         ElementList.push(Elements[EntityID]);
          */
     };
 
-    TargetNS.ActivityDummy = '';
-
-    TargetNS.CreateActivityDummy = function (PosX, PosY) {
-        TargetNS.ActivityDummy = BPMN.ActivityDummy.create({
-            position: {x: PosX, y: PosY},
-            id: 'ActivityDummy'
-        });
+    TargetNS.CreateActivityDummy = function () {
+        if (!$('#Dummy').length) {
+            $('#Canvas').append('<div class="Activity" id="Dummy"><span>Dummy</span></div>').find('#Dummy').css({
+                top: '10px',
+                left: '10px'
+            });
+        }
     };
 
-    TargetNS.RemoveActivityDummy = function () {
-        var JointObject = TargetNS.ActivityDummy.joints()[0];
-        TargetNS.ActivityDummy.remove();
-        ChangeTransitionColor(JointObject, "#F00");
-        JointObject.update();
+    TargetNS.ShowActivityTooltip = function ($Element) {
+        var $tooltip = $('#DiagramTooltip'),
+            text = '<h4>' + $Element.find('span').text() + '</h4>',
+            position = { x: 0, y: 0},
+            Activity = Core.Agent.Admin.ProcessManagement.ProcessData.Activity,
+            ActivityDialogs,
+            ElementID = $Element.attr('id');
+
+        if (typeof Activity[$Element.attr('id')] === 'undefined') {
+            return false;
+        }
+
+        ActivityDialogs = Activity[$Element.attr('id')].ActivityDialog;
+
+        if (!$tooltip.length) {
+            $tooltip = $('<div id="DiagramTooltip"></div>').css('display', 'none').appendTo('#Canvas');
+        }
+        else if ($tooltip.is(':visible')) {
+            $tooltip.hide();
+        }
+
+        // calculate tooltip position
+        // x: x-coordinate of canvas + x-coordinate of element within canvas + width of element
+        position.x = parseInt($Element.css('left'), 10) + parseInt($Element.width(), 10) + 10;
+
+        // y: y-coordinate of canvas + y-coordinate of element within canvas + height of element
+        position.y = parseInt($Element.css('top'), 10) + 10;
+
+        // Add content to the tooltip
+        text += "<ul>";
+        if (ActivityDialogs) {
+            $.each(ActivityDialogs, function (Key, Value) {
+                var Interfaces = Core.Agent.Admin.ProcessManagement.ProcessData.ActivityDialog[Value].Interface,
+                    SelectedInterface = '';
+
+                $.each(Interfaces, function (Key, Value) {
+                    if (SelectedInterface.length) {
+                        SelectedInterface += '/';
+                    }
+                    SelectedInterface += Value.substr(0,1);
+                });
+
+                text += "<li><span class=\"AvailableIn\">" + SelectedInterface + "</span> " + Core.Agent.Admin.ProcessManagement.ProcessData.ActivityDialog[Value].Name + " </li>";
+            });
+        }
+        else {
+            text += '<li class="NoDialogsAssigned">' + Core.Agent.Admin.ProcessManagement.Localization.NoDialogsAssigned + '</li>';
+        }
+
+        text += "</ul>";
+
+        $tooltip
+            .html(text)
+            .css('top', position.y)
+            .css('left', position.x)
+            .show();
+    };
+
+    TargetNS.ShowActivityDeleteButton = function ($Element) {
+        var $delete = $('.DiagramDeleteLink').clone(),
+            position = { x: 0, y: 0},
+            Activity = Core.Agent.Admin.ProcessManagement.ProcessData.Activity,
+            ElementID = $Element.attr('id');
+
+        if (typeof Activity[ElementID] === 'undefined') {
+            return false;
+        }
+
+        if ($delete.is(':visible')) {
+            $delete.hide();
+        }
+
+        $Element.append($delete);
+
+        $delete
+            .show()
+            .unbind('click')
+            .bind('click', function () {
+                var Remove = confirm(Core.Agent.Admin.ProcessManagement.Localization.RemoveActivityMsg);
+                if (Remove) {
+                    TargetNS.RemoveActivity(ElementID);
+                }
+                return false;
+            });
     };
 
     TargetNS.ShowActivityLoader = function (EntityID) {
         if (typeof Elements[EntityID] !== 'undefined') {
-            Elements[EntityID].removeLabel();
-            Elements[EntityID].showLoader();
+            $('#' + EntityID).find('span').hide().parent().find('.Loader').show();
         }
     };
 
     TargetNS.ShowActivityAddActivityDialogSuccess = function (EntityID) {
         if (typeof Elements[EntityID] !== 'undefined') {
             // show icon for success
-            Elements[EntityID].hideLoader();
-            Elements[EntityID].showSuccessIcon();
+            $('#' + EntityID).find('.Loader').hide().parent().find('.Success').show();
 
-            // wait 1 second and fade out
+            // wait 1 second, fade success icon out and label back in
             window.setTimeout(function () {
-                Elements[EntityID].hideSuccessIcon(function () {
-                    Elements[EntityID].drawLabel();
+                $('#' + EntityID).find('.Success').fadeOut('slow', function() {
+                    $('#' + EntityID).find('span').fadeIn();
                 });
             }, 1000);
         }
     };
 
     TargetNS.ShowActivityAddActivityDialogError = function (EntityID) {
-        Elements[EntityID].hideLoader();
-        Elements[EntityID].drawLabel();
+        $('#' + EntityID).find('.Loader').hide().parent().find('span').show();
     };
-
     TargetNS.HighlightActivity = function (Color) {
-        $.each(Elements, function () {
-            var Element = this;
-            if (typeof Element !== 'undefined' &&
-                Element.wrapper.wholeShape &&
-                Element.wrapper.wholeShape.properties.object === 'Activity') {
-                Element.wrapper.animate({stroke: Color}, 10);
-            }
-        });
+        $('#Canvas .Activity').addClass('Highlighted');
+    };
+    TargetNS.UnhighlightActivity = function () {
+        $('#Canvas .Activity').removeClass('Highlighted');
     };
 
-    TargetNS.UnhighlightActivity = function () {
-        TargetNS.HighlightActivity('#000');
+    TargetNS.RemoveActivity = function (EntityID) {
+        var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
+            ProcessEntityID = $('#ProcessEntityID').val();
+
+        // remove HTML elements
+        $('#DiagramTooltip').hide();
+        $('#' + EntityID).find('.DiagramDeleteLink').remove();
+
+        // if Activity id StartActivity, this Activity cannot be removed...
+        if (Config.Process[ProcessEntityID].StartActivity === EntityID) {
+            alert(Core.Agent.Admin.ProcessManagement.Localization.ActivityCannotBeDeleted);
+            return;
+        }
+
+        // update config
+        // delete entity and all transitions starting *from* here
+        if (typeof Config.Process[ProcessEntityID].Path[EntityID] !== 'undefined') {
+            delete Config.Process[ProcessEntityID].Path[EntityID];
+        }
+
+        // delete Elements array entry
+        Core.Agent.Admin.ProcessManagement.Canvas.RemoveActivityFromConfig(EntityID);
+
+        // delete all transitions *to* this entity
+        $.each(Config.Process[ProcessEntityID].Path, function (StartActivity, Value) {
+            // the Value is a hash with the transition name as Key
+            // loop again
+            $.each(Value, function (Transition, EndActivity) {
+                // Key is now the Transition
+                // Value is a hash with a Key "ActivityID" which is possibly our deleted Entity
+                if (EndActivity.ActivityID && EndActivity.ActivityID === Entity) {
+                    delete Config.Process[ProcessEntityID].Path[StartActivity][Transition];
+                }
+            });
+        });
+
+        // remove element from canvas
+        $('#Canvas').find('#' + EntityID).remove();
     };
 
     TargetNS.RemoveActivityFromConfig = function (EntityID) {
         delete Elements[EntityID];
     };
 
-    TargetNS.UpdateElementPosition = function (Element) {
-        var Properties,
-            EntityID;
+    TargetNS.UpdateElementPosition = function ($Element) {
+        var EntityID;
         // Element can be "false" if newly placed on the canvas
         // otherwise it's an object
-        if (Element) {
-            Properties = Element.properties;
-            EntityID = Properties.id;
-
+        if ($Element) {
+            EntityID = $Element.attr('id');
             if (typeof Core.Agent.Admin.ProcessManagement.ProcessLayout[EntityID] !== 'undefined') {
                 // Save new element position
                 Core.Agent.Admin.ProcessManagement.ProcessLayout[EntityID] = {
-                    left: parseInt(Properties.position.x, 10) + parseInt(Properties.dx, 10),
-                    top: parseInt(Properties.position.y, 10) + parseInt(Properties.dy, 10)
+                    left: parseInt($Element.css('left'), 10),
+                    top: parseInt($Element.css('top'), 10)
                 };
             }
         }
     };
 
     TargetNS.SetStartActivity = function (EntityID) {
+
         // Not more than one StartActivity allowed, function does not check this!
-        // After the initialization of the canvas, an automatic setting of the StratActivity is not useful
+        // After the initialization of the canvas, an automatic setting of the StartActivity is not useful
         // Only the user can change this by moving the arrow
         if (typeof Elements[EntityID] !== 'undefined') {
 
-            var stateMachineConnector = {
-                connector:"StateMachine",
-                paintStyle:{lineWidth:3,strokeStyle:"#056"},
-                hoverPaintStyle:{strokeStyle:"#dbe300"},
-                endpoints: ["Blank","Blank"],
-                anchor:"Continuous",
-                overlays:[ ["PlainArrow", {location:1, width:20, length:12} ]]
-            };
 
+            // Create the connection from StartEvent to StartActivity
+            // We don't create the Endpoints here, because every Activity
+            // creates its own Endpoint on CreateActivity()
             jsPlumb.connect({
+                connector: [ 'StateMachine', { curviness: 20, margin: -1 } ],
                 source: 'StartEvent',
                 target: EntityID,
-            }, stateMachineConnector);
+                anchor: 'Continuous',
+                endpoint: [ 'Blank' ],
+                detachable: true,
+                reattach: true,
+                parameters: {
+                    'ID': 'StartTransition'
+                },
+            });
+
+/*
+
+          stateMachineConnector = {
+            connector: 'StateMachine',
+            paintStyle: { lineWidth: 2, strokeStyle: '#aaa' },
+            hoverPaintStyle: { strokeStyle: '#dbe300' },
+            endpoint: [ 'Dot', { cssClass: 'Endpoint', hoverClass: 'EndpointHover' } ],
+            endpointStyle: { fillStyle: '#aaa'  },
+            overlays: [ [ 'Arrow', { width: 15, length: 10 } ] ],
+            anchor: 'Continuous',
+            reattach: true
+        };
+
+            Connection.bind('mouseenter', function() {
+                if (TargetNS.DragTransitionAction) {
+                    TargetNS.DragTransitionActionTransition = {
+                        TransitionID: EntityID,
+                        StartActivity: StartElement
+                    };
+                    TargetNS.HighlightTransition(EntityID);
+                }
+            });
+
+            Connection.bind('mouseexit', function() {
+                if (TargetNS.DragTransitionAction) {
+                    TargetNS.DragTransitionActionTransition = {};
+                    TargetNS.HighlightTransition(EntityID);
+                }
+            });
+*/
+
 
             /*JointObject = Elements.StartEvent.joint(Elements[EntityID], BPMN.StartArrow).registerForever(ElementList);
 
@@ -327,6 +453,9 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
     };
 
     TargetNS.CreateTransition = function (StartElement, EndElement, EntityID, TransitionName) {
+
+console.log('Aufruf mit ' + EntityID);
+
         function DeleteTransition(LocalJointObject) {
             LocalJointObject.freeJoint(LocalJointObject.startObject());
             LocalJointObject.freeJoint(LocalJointObject.endObject());
@@ -343,7 +472,7 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
 
         StartActivity = Elements[StartElement];
         if (EndElement === "Dummy") {
-            EndActivity = TargetNS.ActivityDummy;
+            EndActivity = $('#Dummy').attr('id');
         }
         else {
             EndActivity = Elements[EndElement];
@@ -355,6 +484,9 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
 
         // Get TransitionName from Config
         if (typeof TransitionName === 'undefined') {
+
+console.log(EntityID);
+
             if (Config.Transition && Config.Transition[EntityID]) {
                 TransitionName = Config.Transition[EntityID].Name;
             }
@@ -363,27 +495,39 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
             }
         }
 
-        // Establish the joint
-
-        var stateMachineConnector = {
-            connector:"StateMachine",
-            paintStyle:{lineWidth:3,strokeStyle:"#056"},
-            hoverPaintStyle:{strokeStyle:"#dbe300"},
-            endpoint:[ "Dot", { cssClass: "Endpoint", hoverClass: "EndpointHover" } ],
-            anchor:"Continuous",
-            reattach: true
-        };
-
         var Connection = jsPlumb.connect({
+            connector: [ 'StateMachine', { curviness: 20, margin: -1 } ],
             source: StartActivity,
             target: EndActivity,
+            anchor: 'Continuous',
+            endpoint: [ 'Dot', { hoverClass: 'EndpointHover' } ],
+            detachable: true,
+            reattach: true,
             overlays: [
-                ["PlainArrow", {location:1, width:20, length:12} ],
-                ["Label", { label: TransitionName, location: 0.5, cssClass: 'TransitionLabel', id: EntityID } ]
-            ]
-        }, stateMachineConnector);
+                [ "Arrow", { position: 0.75, width: 20, length: 12 } ],
+                [ "Label", { label: TransitionName, location: 0.5, cssClass: 'TransitionLabel', id: EntityID } ]
+            ],
+            parameters: {
+                'ID': EntityID
+            }
+        });
 
+        Connection.bind('mouseenter', function() {
+            if (TargetNS.DragTransitionAction) {
+                TargetNS.DragTransitionActionTransition = {
+                    TransitionID: EntityID,
+                    StartActivity: StartElement
+                };
+                TargetNS.HighlightTransition(EntityID);
+            }
+        });
 
+        Connection.bind('mouseexit', function() {
+            if (TargetNS.DragTransitionAction) {
+                TargetNS.DragTransitionActionTransition = {};
+                TargetNS.HighlightTransition(EntityID);
+            }
+        });
 
         /*
         BPMN.Arrow.label = TransitionName;
@@ -535,58 +679,24 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
     TargetNS.DragTransitionAction = false;
     TargetNS.DragTransitionActionTransition = {};
 
-    TargetNS.HighlightTransition = function (Color, LocalJointObject) {
-        // if JointObject is given, highlight this Transition
-        if (typeof LocalJointObject !== 'undefined') {
-            LocalJointObject._opt.attrs["stroke-width"] = 10;
-            LocalJointObject._opt.attrs.stroke = Color;
-            LocalJointObject._opt.attrs["stroke-linecap"] = 'square';
-            LocalJointObject.update();
+    TargetNS.HighlightTransition = function (EntityID) {
+        if (EntityID && Elements[EntityID]) {
+            $('#' + EntityID).setHover(true);
         }
-        // otherwise highlight all transitions
         else {
-            $.each(JointObject._registeredObjects, function () {
-                var Element = this,
-                    ElementJoints;
-                if (Element.wrapper.wholeShape.properties.object === 'Activity') {
-                    ElementJoints = Element.wrapper.joints();
-                    $.each(ElementJoints, function () {
-                        if (this._start.shape.wholeShape.properties.object === 'Activity') {
-                            this._opt.attrs["stroke-width"] = 10;
-                            this._opt.attrs.stroke = Color;
-                            this._opt.attrs["stroke-linecap"] = 'square';
-                            this.update();
-                        }
-                    });
-                }
+            $.each(jsPlumb.getConnections(), function(Index, Connection) {
+                Connection.setHover(true);
             });
         }
     };
 
-    TargetNS.UnhighlightTransition = function (LocalJointObject) {
-        // if JointObject is given, unhighlight only this Transition
-        if (typeof LocalJointObject !== 'undefined') {
-            LocalJointObject._opt.attrs["stroke-width"] = 1;
-            LocalJointObject._opt.attrs.stroke = '#000';
-            LocalJointObject._opt.attrs["stroke-linecap"] = 'round';
-            LocalJointObject.update();
+    TargetNS.UnhighlightTransition = function (EntityID) {
+        if (EntityID && Elements[EntityID]) {
+            $('#' + EntityID).setHover(false);
         }
-        // otherwise highlight all transitions
         else {
-            $.each(JointObject._registeredObjects, function () {
-                var Element = this,
-                    ElementJoints;
-                if (Element.wrapper.wholeShape.properties.object === 'Activity') {
-                    ElementJoints = Element.wrapper.joints();
-                    $.each(ElementJoints, function () {
-                        if (this._start.shape.wholeShape.properties.object === 'Activity') {
-                            this._opt.attrs["stroke-width"] = 1;
-                            this._opt.attrs.stroke = '#000';
-                            this._opt.attrs["stroke-linecap"] = 'round';
-                            this.update();
-                        }
-                    });
-                }
+            $.each(jsPlumb.getConnections(), function(Index, Connection) {
+                Connection.setHover(false);
             });
         }
     };
@@ -595,11 +705,17 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
         var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
             Layout = Core.Agent.Admin.ProcessManagement.ProcessLayout,
             ProcessEntityID = $('#ProcessEntityID').val(),
-            StartActivity = Config.Process[ProcessEntityID].StartActivity;
+            StartActivity = Config.Process[ProcessEntityID].StartActivity,
+            jsPlumbInstance = jsPlumb.getInstance();
+
+        // Set some jsPlumb defaults
+        jsPlumbInstance.importDefaults({
+            Connector: [ 'StateMachine', { curviness: 20, margin: -1 } ],
+            Anchor: 'Continuous',
+        });
 
         // Always start with drawing the start event element
         TargetNS.CreateStartEvent();
-
 
         // Draw all available Activities (Keys of the ProcessData-Path)
         $.each(Config.Process[ProcessEntityID].Path, function (Key, Value) {
@@ -610,7 +726,6 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
                 Core.Exception.Throw('Error: Activity without Layout Position!', 'ProcessError');
             }
         });
-
 
         // Start Activity
         if (typeof StartActivity !== 'undefined') {
@@ -633,25 +748,32 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
                     }
 
                     // if EndActivity is undefined draw transition with dummy
-                    /*                    else {
+                    else {
+
                         // Create dummy activity to use for initial transition
-                        TargetNS.CreateActivityDummy(100, 100);
+                        TargetNS.CreateActivityDummy();
 
                         // Create transition between this Activity and DummyElement
                         TargetNS.CreateTransition(StartActivityID, 'Dummy', TransitionID);
 
                         // Remove Connection to DummyElement and delete DummyElement again
                         TargetNS.RemoveActivityDummy();
-                    }*/
+                    }
                 });
             }
         });
 
         // make all activities draggable (note the z-index!)
         jsPlumb.draggable($('#Canvas .Activity'), {
-            containment: '#Canvas'
+            containment: '#Canvas',
+            start: function() {
+                $('#DiagramTooltip').hide();
+                $(this).find('.DiagramDeleteLink').remove();
+            },
+            stop: function() {
+                TargetNS.UpdateElementPosition($(this));
+            }
         });
-
     };
 
     TargetNS.Redraw = function () {
@@ -681,12 +803,36 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
         // based on the saved layout information (if available)
         $('#Canvas').width(CanvasWidth).height(CanvasHeight);
 
+        // init binding to connection changes
+        jsPlumb.bind('jsPlumbConnection', function(Data) {
+            var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
+                ProcessEntityID = $('#ProcessEntityID').val(),
+                Path = Config.Process[ProcessEntityID].Path,
+                TransitionID;
+
+            // check if we need to register a new StartActivity
+            if ( Data.sourceId === 'StartEvent') {
+                Config.Process[ProcessEntityID].StartActivity = Data.targetId;
+            }
+            // in case the target is the dummy, its a whole new transition
+            // and we need to mark it as "to be connected", so the user will
+            // see that there is something to do with it
+            else if (Data.targetId === 'Dummy') {
+                Data.connection.setPaintStyle({ strokeStyle: "red" });
+            }
+            // otherwise, an existing transition has been (re)connected
+            else {
+                TransitionID = Data.connection.getParameter('ID');
+                Path[Data.sourceId][TransitionID] = {
+                    ActivityEntityID: Data.targetId
+                };
+            }
+        });
+
         // Init JsPlumb in Canvas mode (because of bugs with SVG in jQ1.6 in IE9)
         jsPlumb.setRenderMode(jsPlumb.CANVAS);
 
         TargetNS.DrawDiagram();
-
-        //InitObjectMoving();
     };
 
     return TargetNS;
