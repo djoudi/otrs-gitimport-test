@@ -2,7 +2,7 @@
 // Core.Agent.Admin.ProcessManagement.Canvas.js - provides the special module functions for the Process Management Diagram Canvas.
 // Copyright (C) 2001-2012 OTRS AG, http://otrs.org/
 // --
-// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.2 2012-11-15 22:25:23 mab Exp $
+// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.3 2012-11-19 10:09:37 mab Exp $
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -763,6 +763,10 @@ console.log(EntityID);
             }
         });
 
+        TargetNS.MakeDraggable();
+    };
+
+    TargetNS.MakeDraggable = function() {
         // make all activities draggable (note the z-index!)
         jsPlumb.draggable($('#Canvas .Activity'), {
             containment: '#Canvas',
@@ -798,7 +802,7 @@ console.log(EntityID);
         var CanvasSize = GetCanvasSize($('#Canvas')),
             CanvasWidth = CanvasSize.Width,
             CanvasHeight = CanvasSize.Height;
-
+console.log(Core.Agent.Admin.ProcessManagement.ProcessData);
         // set the width and height of the drawing canvas,
         // based on the saved layout information (if available)
         $('#Canvas').width(CanvasWidth).height(CanvasHeight);
@@ -819,6 +823,9 @@ console.log(EntityID);
             // see that there is something to do with it
             else if (Data.targetId === 'Dummy') {
                 Data.connection.setPaintStyle({ strokeStyle: "red" });
+            }
+            else if (Data.targetId === Data.sourceId) {
+                return false;
             }
             // otherwise, an existing transition has been (re)connected
             else {
