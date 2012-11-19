@@ -2,7 +2,7 @@
 // Core.Agent.Admin.ProcessManagement.Canvas.js - provides the special module functions for the Process Management Diagram Canvas.
 // Copyright (C) 2001-2012 OTRS AG, http://otrs.org/
 // --
-// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.7 2012-11-19 13:28:41 mn Exp $
+// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.8 2012-11-19 15:13:23 mn Exp $
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -355,7 +355,7 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
             // We don't create the Endpoints here, because every Activity
             // creates its own Endpoint on CreateActivity()
             jsPlumb.connect({
-                connector: [ 'StateMachine', { curviness: 20, margin: -1 } ],
+                connector: [ 'StateMachine', { curviness: 20, margin: -1, showLoopback:false } ],
                 source: 'StartEvent',
                 target: EntityID,
                 anchor: 'Continuous',
@@ -497,7 +497,7 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
         }
 
         var Connection = jsPlumb.connect({
-            connector: [ 'StateMachine', { curviness: 20, margin: -1 } ],
+            connector: [ 'StateMachine', { curviness: 20, margin: -1, showLoopback:false } ],
             source: StartActivity,
             target: EndActivity,
             anchor: 'Continuous',
@@ -713,7 +713,7 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
 
         // Set some jsPlumb defaults
         jsPlumbInstance.importDefaults({
-            Connector: [ 'StateMachine', { curviness: 20, margin: -1 } ],
+            Connector: [ 'StateMachine', { curviness: 20, margin: -1, showLoopback:false } ],
             Anchor: 'Continuous',
         });
 
@@ -827,6 +827,10 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
             // check if we need to register a new StartActivity
             if (Data.sourceId === 'StartEvent') {
                 Config.Process[ProcessEntityID].StartActivity = Data.targetId;
+
+                // Correct transition arrows
+                Data.connection.addOverlay([ "Arrow", { location: 0.25, width: 20, length: 12 } ]);
+                Data.connection.addOverlay([ "Arrow", { location: 0.75, width: 20, length: 12 } ]);
             }
             // in case the target is the dummy, its a whole new transition
             // and we need to mark it as "to be connected", so the user will
