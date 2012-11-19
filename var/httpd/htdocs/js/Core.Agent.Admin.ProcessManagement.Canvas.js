@@ -2,7 +2,7 @@
 // Core.Agent.Admin.ProcessManagement.Canvas.js - provides the special module functions for the Process Management Diagram Canvas.
 // Copyright (C) 2001-2012 OTRS AG, http://otrs.org/
 // --
-// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.8 2012-11-19 15:13:23 mn Exp $
+// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.9 2012-11-19 15:40:31 mab Exp $
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -460,12 +460,6 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
     };
 
     TargetNS.CreateTransition = function (StartElement, EndElement, EntityID, TransitionName) {
-        function DeleteTransition(LocalJointObject) {
-            LocalJointObject.freeJoint(LocalJointObject.startObject());
-            LocalJointObject.freeJoint(LocalJointObject.endObject());
-            Joint.dia.unregisterJoint(LocalJointObject);
-            LocalJointObject.clean(["connection", "startCap", "endCap", "handleStart", "handleEnd", "label"]);
-        }
 
         var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
             ProcessEntityID = $('#ProcessEntityID').val(),
@@ -507,7 +501,11 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
             overlays: [
                 [ "Arrow", { location: 0.25, width: 20, length: 12 } ],
                 [ "Arrow", { location: 0.75, width: 20, length: 12 } ],
-                [ "Label", { label: TransitionName, location: 0.5, cssClass: 'TransitionLabel', id: EntityID } ]
+                [ "Label", { label: TransitionName, location: 0.5, cssClass: 'TransitionLabel', id: EntityID, events: {
+                    mouseenter: function(labelOverlay, originalEvent) {
+                        TargetNS.InitDeleteTransition(labelOverlay);
+                    }
+                }}]
             ],
             parameters: {
                 "TransitionID": EntityID
@@ -530,153 +528,25 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
                 TargetNS.HighlightTransition(EntityID);
             }
         });
+    };
 
+    TargetNS.InitDeleteTransition = function(Connection) {
+        var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
+            ProcessEntityID = $('#ProcessEntityID').val(),
+            Path = Config.Process[ProcessEntityID].Path,
+            StartActivity, Transition;
 
-        /*
-        BPMN.Arrow.label = TransitionName;
-        LocalJointObject = StartActivity.joint(EndActivity, BPMN.Arrow).toggleSmoothing().registerForever(ElementList);
-        StartActivity.initTransitionDblClick(undefined, TransitionDblClick);
-        if (EndElement !== "Dummy") {
-            EndActivity.initTransitionDblClick(undefined, TransitionDblClick);
-        }
-
-
-        LocalJointObject.EntityID = EntityID;
-
-        // Add hook for Joint Hover
-        LocalJointObject.mouseOverCallback = function () {
-            if (TargetNS.DragTransitionAction) {
-                TargetNS.DragTransitionActionTransition = {
-                    TransitionID: EntityID,
-                    StartActivity: StartElement
-                };
-                TargetNS.HighlightTransition('#F00', LocalJointObject);
-            }
-        };
-
-        LocalJointObject.mouseOutCallback = function () {
-            if (TargetNS.DragTransitionAction) {
-                TargetNS.DragTransitionActionTransition = {};
-                TargetNS.HighlightTransition('#000', LocalJointObject);
-            }
-        };
-
-        // Add hook for Joint disconnection
-        LocalJointObject.disconnectedJoint = function (Side) {
-            var StartActivity, EndActivity, Transition;
-
-            if (LocalJointObject.isStartDummy() && LocalJointObject.isEndDummy()) {
-                // Both sides are not connected any more
-                // Do you want to remove this transition?
-                // If not, nothing will happen to the transition
+        if (!$(Connection.canvas).find('.Delete').length) {
+            $(Connection.canvas).append('<a class="Delete" href="#">x</a>').find('.Delete').bind('click', function() {
                 if (window.confirm(Core.Agent.Admin.ProcessManagement.Localization.RemoveTransitionMsg)) {
-                    Transition = LocalJointObject.EntityID;
-
-                    if (Side === "start") {
-                        StartActivity = OldActivity.wholeShape.properties.id;
-
-                        // remove arrow from canvas
-                        window.setTimeout(function () {
-                            DeleteTransition(LocalJointObject);
-                        }, 200);
-
-                        // remove Path info from config
-                        delete Path[StartActivity][Transition];
-                    }
-                    else {
-                        EndActivity = OldActivity.wholeShape.properties.id;
-                        StartActivity = LocalJointObject.OldStartActivity;
-
-                        // remove arrow from canvas
-                        window.setTimeout(function () {
-                            DeleteTransition(LocalJointObject);
-                        }, 200);
-
-                        // remove Path info from config
-                        delete Path[StartActivity][Transition];
-                    }
+                    StartActivity = Connection.component.sourceId;
+                    Transition    = Connection.id
+                    jsPlumb.detach(Connection.component);
+                    delete Path[StartActivity][Transition];
                 }
-            }
-        };
-
-        // Register callbacks for disconnecting and connecting transitions
-        LocalJointObject.registerCallback("disconnected", function (Side) {
-            // get old activity (the activity that was just disconnected)
-            // to find the correct config data if the transition is connected again
-            OldActivity = this;
-
-            if (Side === 'start') {
-                LocalJointObject.OldStartActivity = this.wholeShape.properties.id;
-            }
-            else {
-                LocalJointObject.OldEndActivity = this.wholeShape.properties.id;
-            }
-
-            ChangeTransitionColor(LocalJointObject, "#F00");
-        });
-
-        LocalJointObject.registerCallback("justConnected", function (Side) {
-            var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
-                ProcessEntityID = $('#ProcessEntityID').val(),
-                StartActivityID, StartActivity, EndActivityID, EndActivity,
-                PathElement,
-                OldActivityID;
-
-
-            if (typeof OldActivity !== 'undefined') {
-                OldActivityID = OldActivity.wholeShape.properties.id;
-            }
-
-            if (Side === "start") {
-                // Handle start cap change
-                StartActivity = this;
-                if (StartActivity.wholeShape && StartActivity.wholeShape.properties && StartActivity.wholeShape.properties.object === 'Activity') {
-                    StartActivityID = StartActivity.wholeShape.properties.id;
-
-                    // remove old Path info from config
-                    PathElement = Path[OldActivityID][EntityID];
-                    delete Path[OldActivityID][EntityID];
-
-                    // add new path info
-                    Path[StartActivityID][EntityID] = PathElement;
-
-                    // re-initialize DblClick
-                    StartActivity.wholeShape.initTransitionDblClick(undefined, TransitionDblClick);
-
-                }
-                window.setTimeout(function () {
-                    LocalJointObject.callback("objectMoving", LocalJointObject, [StartActivity]);
-
-                    if (!LocalJointObject.isStartDummy() && !LocalJointObject.isEndDummy()) {
-                        ChangeTransitionColor(LocalJointObject, "#000");
-                        LocalJointObject.update();
-                    }
-                }, 200);
-            }
-            else {  // side === "end"
-                // Handle end cap change
-                EndActivity = this;
-                if (EndActivity.wholeShape && EndActivity.wholeShape.properties && EndActivity.wholeShape.properties.object === 'Activity') {
-                    EndActivityID = EndActivity.wholeShape.properties.id;
-                    StartActivityID = LocalJointObject.startObject().wholeShape.properties.id;
-
-                    // otherwise change end activity in Path info from config
-                    Path[StartActivityID][EntityID].ActivityEntityID = EndActivityID;
-
-                    // re-initialize DblClick
-                    Elements[EndActivityID].initTransitionDblClick(undefined, TransitionDblClick);
-                }
-
-                window.setTimeout(function () {
-                    LocalJointObject.callback("objectMoving", LocalJointObject, [EndActivity]);
-
-                    if (!LocalJointObject.isStartDummy() && !LocalJointObject.isEndDummy()) {
-                        ChangeTransitionColor(LocalJointObject, "#000");
-                        LocalJointObject.update();
-                    }
-                }, 200);
-            }
-        });*/
+                return false;
+            });
+        }
     };
 
     TargetNS.DragTransitionAction = false;
@@ -867,7 +737,9 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
                 Data.connection.setParameter('TransitionID', TransitionID);
                 Data.connection.addOverlay([ "Arrow", { location: 0.25, width: 20, length: 12 } ]);
                 Data.connection.addOverlay([ "Arrow", { location: 0.75, width: 20, length: 12 } ]);
-                Data.connection.setLabel({ label: TransitionName, location: 0.5, cssClass: 'TransitionLabel', id: TransitionID });
+                Data.connection.addOverlay([ "Label", { label: TransitionName, location: 0.5, cssClass: 'TransitionLabel', id: TransitionID, events: { mouseenter: function(labelOverlay, originalEvent) {
+                    TargetNS.InitDeleteTransition(labelOverlay);
+                } } } ]);
             }
         });
 
