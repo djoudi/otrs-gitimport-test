@@ -2,7 +2,7 @@
 // Core.Agent.Admin.ProcessManagement.Canvas.js - provides the special module functions for the Process Management Diagram Canvas.
 // Copyright (C) 2001-2012 OTRS AG, http://otrs.org/
 // --
-// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.5 2012-11-19 13:03:43 mn Exp $
+// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.6 2012-11-19 13:17:37 mn Exp $
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -288,7 +288,7 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
         $('#DiagramTooltip').hide();
         $('#' + EntityID).find('.DiagramDeleteLink').remove();
 
-        // if Activity id StartActivity, this Activity cannot be removed...
+        // if Activity is StartActivity, this Activity cannot be removed...
         if (Config.Process[ProcessEntityID].StartActivity === EntityID) {
             alert(Core.Agent.Admin.ProcessManagement.Localization.ActivityCannotBeDeleted);
             return;
@@ -310,11 +310,14 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
             $.each(Value, function (Transition, EndActivity) {
                 // Key is now the Transition
                 // Value is a hash with a Key "ActivityID" which is possibly our deleted Entity
-                if (EndActivity.ActivityID && EndActivity.ActivityID === Entity) {
+                if (EndActivity.ActivityEntityID && EndActivity.ActivityEntityID === EntityID) {
                     delete Config.Process[ProcessEntityID].Path[StartActivity][Transition];
                 }
             });
         });
+
+        // remove connections
+        jsPlumb.detachAllConnections(EntityID);
 
         // remove element from canvas
         $('#Canvas').find('#' + EntityID).remove();
