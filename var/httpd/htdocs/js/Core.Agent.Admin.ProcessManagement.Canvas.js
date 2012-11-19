@@ -2,7 +2,7 @@
 // Core.Agent.Admin.ProcessManagement.Canvas.js - provides the special module functions for the Process Management Diagram Canvas.
 // Copyright (C) 2001-2012 OTRS AG, http://otrs.org/
 // --
-// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.4 2012-11-19 12:18:47 mn Exp $
+// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.5 2012-11-19 13:03:43 mn Exp $
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -489,7 +489,7 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
                 TransitionName = Config.Transition[EntityID].Name;
             }
             else {
-                TransitionName = 'NoName';
+                TransitionName = 'No2Name';
             }
         }
 
@@ -804,10 +804,15 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
         var CanvasSize = GetCanvasSize($('#Canvas')),
             CanvasWidth = CanvasSize.Width,
             CanvasHeight = CanvasSize.Height;
-console.log(Core.Agent.Admin.ProcessManagement.ProcessData);
+
         // set the width and height of the drawing canvas,
         // based on the saved layout information (if available)
         $('#Canvas').width(CanvasWidth).height(CanvasHeight);
+
+        // Init JsPlumb in Canvas mode (because of bugs with SVG in jQ1.6 in IE9)
+        jsPlumb.setRenderMode(jsPlumb.CANVAS);
+
+        TargetNS.DrawDiagram();
 
         // init binding to connection changes
         jsPlumb.bind('jsPlumbConnection', function(Data) {
@@ -833,6 +838,12 @@ console.log(Core.Agent.Admin.ProcessManagement.ProcessData);
             else {
                 // get TransitionID and TransitionName
                 TransitionID = TargetNS.LatestConnectionTransitionID;
+
+                // Fallback: try to get the ID from the connection
+                if (typeof TransitionID === 'undefined') {
+                    TransitionID = Data.connection.getParameter('TransitionID');
+                }
+
                 if (Config.Transition && Config.Transition[TransitionID]) {
                     TransitionName = Config.Transition[TransitionID].Name;
                 }
@@ -858,11 +869,6 @@ console.log(Core.Agent.Admin.ProcessManagement.ProcessData);
            TargetNS.LatestConnectionTransitionID = Data.connection.getParameter('TransitionID');
            return true;
         });
-
-        // Init JsPlumb in Canvas mode (because of bugs with SVG in jQ1.6 in IE9)
-        jsPlumb.setRenderMode(jsPlumb.CANVAS);
-
-        TargetNS.DrawDiagram();
     };
 
     return TargetNS;
