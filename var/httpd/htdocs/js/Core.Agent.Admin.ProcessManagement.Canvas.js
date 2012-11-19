@@ -2,7 +2,7 @@
 // Core.Agent.Admin.ProcessManagement.Canvas.js - provides the special module functions for the Process Management Diagram Canvas.
 // Copyright (C) 2001-2012 OTRS AG, http://otrs.org/
 // --
-// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.3 2012-11-19 10:09:37 mab Exp $
+// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.4 2012-11-19 12:18:47 mn Exp $
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -37,7 +37,7 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
             hoverPaintStyle: { strokeStyle: '#dbe300' },
             endpoint: [ 'Dot', { cssClass: 'Endpoint', hoverClass: 'EndpointHover' } ],
             endpointStyle: { fillStyle: '#aaa'  },
-            overlays: [ [ 'Arrow', { position: 0.75, width: 15, length: 10 } ] ],
+            overlays: [ [ 'Arrow', { location: 0.25, width: 15, length: 10 } ], [ 'Arrow', { location: 0.75, width: 15, length: 10 } ] ],
             anchor: 'Continuous',
             reattach: true
         };
@@ -359,6 +359,10 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
                 endpoint: [ 'Blank' ],
                 detachable: true,
                 reattach: true,
+                overlays: [
+                    [ "Arrow", { location: 0.25, width: 20, length: 12 } ],
+                    [ "Arrow", { location: 0.75, width: 20, length: 12 } ],
+                ],
                 parameters: {
                     'ID': 'StartTransition'
                 },
@@ -453,9 +457,6 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
     };
 
     TargetNS.CreateTransition = function (StartElement, EndElement, EntityID, TransitionName) {
-
-console.log('Aufruf mit ' + EntityID);
-
         function DeleteTransition(LocalJointObject) {
             LocalJointObject.freeJoint(LocalJointObject.startObject());
             LocalJointObject.freeJoint(LocalJointObject.endObject());
@@ -484,9 +485,6 @@ console.log('Aufruf mit ' + EntityID);
 
         // Get TransitionName from Config
         if (typeof TransitionName === 'undefined') {
-
-console.log(EntityID);
-
             if (Config.Transition && Config.Transition[EntityID]) {
                 TransitionName = Config.Transition[EntityID].Name;
             }
@@ -504,11 +502,12 @@ console.log(EntityID);
             detachable: true,
             reattach: true,
             overlays: [
-                [ "Arrow", { position: 0.75, width: 20, length: 12 } ],
+                [ "Arrow", { location: 0.25, width: 20, length: 12 } ],
+                [ "Arrow", { location: 0.75, width: 20, length: 12 } ],
                 [ "Label", { label: TransitionName, location: 0.5, cssClass: 'TransitionLabel', id: EntityID } ]
             ],
             parameters: {
-                'ID': EntityID
+                "TransitionID": EntityID
             }
         });
 
@@ -528,6 +527,7 @@ console.log(EntityID);
                 TargetNS.HighlightTransition(EntityID);
             }
         });
+
 
         /*
         BPMN.Arrow.label = TransitionName;
@@ -798,6 +798,8 @@ console.log(EntityID);
         }
     };
 
+    TargetNS.LatestConnectionTransitionID;
+
     TargetNS.Init = function () {
         var CanvasSize = GetCanvasSize($('#Canvas')),
             CanvasWidth = CanvasSize.Width,
@@ -812,10 +814,10 @@ console.log(Core.Agent.Admin.ProcessManagement.ProcessData);
             var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
                 ProcessEntityID = $('#ProcessEntityID').val(),
                 Path = Config.Process[ProcessEntityID].Path,
-                TransitionID;
+                TransitionID, TransitionName;
 
             // check if we need to register a new StartActivity
-            if ( Data.sourceId === 'StartEvent') {
+            if (Data.sourceId === 'StartEvent') {
                 Config.Process[ProcessEntityID].StartActivity = Data.targetId;
             }
             // in case the target is the dummy, its a whole new transition
@@ -829,11 +831,32 @@ console.log(Core.Agent.Admin.ProcessManagement.ProcessData);
             }
             // otherwise, an existing transition has been (re)connected
             else {
-                TransitionID = Data.connection.getParameter('ID');
+                // get TransitionID and TransitionName
+                TransitionID = TargetNS.LatestConnectionTransitionID;
+                if (Config.Transition && Config.Transition[TransitionID]) {
+                    TransitionName = Config.Transition[TransitionID].Name;
+                }
+                else {
+                    TransitionName = 'NoName';
+                }
+
+                // set new Path
                 Path[Data.sourceId][TransitionID] = {
                     ActivityEntityID: Data.targetId
                 };
+
+                // Correcting connection: setting parameters and overlays
+                Data.connection.setParameter('TransitionID', TransitionID);
+                Data.connection.addOverlay([ "Arrow", { location: 0.25, width: 20, length: 12 } ]);
+                Data.connection.addOverlay([ "Arrow", { location: 0.75, width: 20, length: 12 } ]);
+                Data.connection.setLabel({ label: TransitionName, location: 0.5, cssClass: 'TransitionLabel', id: TransitionID });
             }
+        });
+
+        // init event to save transition ID, because information is lost while re-connecting connections
+        jsPlumb.bind('beforeDrop', function(Data) {
+           TargetNS.LatestConnectionTransitionID = Data.connection.getParameter('TransitionID');
+           return true;
         });
 
         // Init JsPlumb in Canvas mode (because of bugs with SVG in jQ1.6 in IE9)
