@@ -2,7 +2,7 @@
 // Core.Agent.Admin.ProcessManagement.js - provides the special module functions for the Process Management.
 // Copyright (C) 2001-2012 OTRS AG, http://otrs.org/
 // --
-// $Id: Core.Agent.Admin.ProcessManagement.js,v 1.58.2.2 2012-11-19 10:09:37 mab Exp $
+// $Id: Core.Agent.Admin.ProcessManagement.js,v 1.58.2.3 2012-11-19 19:53:17 mab Exp $
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -413,7 +413,11 @@ Core.Agent.Admin.ProcessManagement = (function (TargetNS) {
             if (typeof Entity !== 'undefined') {
                 Transition = TargetNS.Canvas.DragTransitionActionTransition;
 
-                // If this action is already bind to this transition
+                if (!Transition.TransitionID) {
+                    return false;
+                }
+
+                // If this action is already bound to this transition
                 // you cannot bind it a second time
                 if (Path[Transition.StartActivity] &&
                     typeof Path[Transition.StartActivity][Transition.TransitionID] !== 'undefined' &&
@@ -430,6 +434,9 @@ Core.Agent.Admin.ProcessManagement = (function (TargetNS) {
                         Path[Transition.StartActivity][Transition.TransitionID].TransitionAction = [];
                     }
                     Path[Transition.StartActivity][Transition.TransitionID].TransitionAction.push(EntityID);
+
+                    // Show success icon in the label
+                    $(Transition.Connection.canvas).append('<div class="Icon Success"></div>').find('.Icon').fadeIn().delay(1000).fadeOut();
                 }
             }
             else {
@@ -450,14 +457,14 @@ Core.Agent.Admin.ProcessManagement = (function (TargetNS) {
 
                 if (SourceID === 'ActivityDialogs' || SourceID === 'Transitions') {
                     UI.helper.css('z-index', 1000);
-                    TargetNS.Canvas.HighlightActivity('#F00');
+                    $('#Canvas .Activity').addClass('Highlighted');
                 }
                 else if (SourceID === 'TransitionActions') {
                     // Set event flag
                     TargetNS.Canvas.DragTransitionAction = true;
 
                     // Highlight all available Transitions
-                    TargetNS.Canvas.HighlightTransition('#000');
+                    $('.TransitionLabel').addClass('Highlighted');
                 }
                 else {
                     UI.helper.css('z-index', 1000);
@@ -468,14 +475,14 @@ Core.Agent.Admin.ProcessManagement = (function (TargetNS) {
                     SourceID = $Source.closest('ul').attr('id');
 
                 if (SourceID === 'ActivityDialogs' || SourceID === 'Transitions') {
-                    TargetNS.Canvas.UnhighlightActivity();
+                    $('#Canvas .Activity').removeClass('Highlighted');
                 }
                 else if (SourceID === 'TransitionActions') {
                     // Reset event flag
                     TargetNS.Canvas.DragTransitionAction = false;
 
                     // Unhighlight all available Transitions
-                    TargetNS.Canvas.UnhighlightTransition();
+                    $('.TransitionLabel').removeClass('Highlighted');
                 }
             }
         });

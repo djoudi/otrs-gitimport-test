@@ -2,7 +2,7 @@
 // Core.Agent.Admin.ProcessManagement.Canvas.js - provides the special module functions for the Process Management Diagram Canvas.
 // Copyright (C) 2001-2012 OTRS AG, http://otrs.org/
 // --
-// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.9 2012-11-19 15:40:31 mab Exp $
+// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.10 2012-11-19 19:53:17 mab Exp $
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -11,7 +11,7 @@
 
 /*global Joint */
 
-// Don't check this file for "dangling _", because of some needed JointJS functionality usese this
+// Don't check this file for "dangling _", because of some needed JointJS functionality uses this
 /*jslint nomen: false*/
 
 "use strict";
@@ -41,13 +41,6 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
             anchor: 'Continuous',
             reattach: true
         };
-
-    function TransitionDblClick(Transition) {
-        var ProcessEntityID = $('#ProcessEntityID').val(),
-            Path = Core.Config.Get('Config.PopupPathPath') + "ProcessEntityID=" + ProcessEntityID + ";TransitionEntityID=" + Transition.EntityID;
-        Core.Agent.Admin.ProcessManagement.ShowOverlay();
-        Core.UI.Popup.OpenPopup(Path, 'Path');
-    }
 
     function GetCanvasSize($Element) {
         var MinWidth = 500,
@@ -148,11 +141,8 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
             },
         });
 
+        // Add the Activity to our list of elements
         Elements[EntityID] = $('#' + EntityID);
-
-        /*
-        ElementList.push(Elements[EntityID]);
-         */
     };
 
     TargetNS.CreateActivityDummy = function () {
@@ -273,12 +263,6 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
     TargetNS.ShowActivityAddActivityDialogError = function (EntityID) {
         $('#' + EntityID).find('.Loader').hide().parent().find('span').show();
     };
-    TargetNS.HighlightActivity = function (Color) {
-        $('#Canvas .Activity').addClass('Highlighted');
-    };
-    TargetNS.UnhighlightActivity = function () {
-        $('#Canvas .Activity').removeClass('Highlighted');
-    };
 
     TargetNS.RemoveActivity = function (EntityID) {
         var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
@@ -350,7 +334,6 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
         // Only the user can change this by moving the arrow
         if (typeof Elements[EntityID] !== 'undefined') {
 
-
             // Create the connection from StartEvent to StartActivity
             // We don't create the Endpoints here, because every Activity
             // creates its own Endpoint on CreateActivity()
@@ -370,92 +353,6 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
                     'ID': 'StartTransition'
                 },
             });
-
-/*
-
-          stateMachineConnector = {
-            connector: 'StateMachine',
-            paintStyle: { lineWidth: 2, strokeStyle: '#aaa' },
-            hoverPaintStyle: { strokeStyle: '#dbe300' },
-            endpoint: [ 'Dot', { cssClass: 'Endpoint', hoverClass: 'EndpointHover' } ],
-            endpointStyle: { fillStyle: '#aaa'  },
-            overlays: [ [ 'Arrow', { width: 15, length: 10 } ] ],
-            anchor: 'Continuous',
-            reattach: true
-        };
-
-            Connection.bind('mouseenter', function() {
-                if (TargetNS.DragTransitionAction) {
-                    TargetNS.DragTransitionActionTransition = {
-                        TransitionID: EntityID,
-                        StartActivity: StartElement
-                    };
-                    TargetNS.HighlightTransition(EntityID);
-                }
-            });
-
-            Connection.bind('mouseexit', function() {
-                if (TargetNS.DragTransitionAction) {
-                    TargetNS.DragTransitionActionTransition = {};
-                    TargetNS.HighlightTransition(EntityID);
-                }
-            });
-*/
-
-
-            /*JointObject = Elements.StartEvent.joint(Elements[EntityID], BPMN.StartArrow).registerForever(ElementList);
-
-            JointObject.registerCallback("disconnected", function () {
-                ChangeTransitionColor(JointObject, "#F00");
-            });
-
-            JointObject.registerCallback("justConnected", function (Side) {
-                var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
-                    ProcessEntityID = $('#ProcessEntityID').val(),
-                    StartActivity, EndActivityID, EndActivity;
-
-                if (Side === "start") {
-                    // Handle start cap change
-                    StartActivity = this;
-                    if (StartActivity.wholeShape && StartActivity.wholeShape.properties && StartActivity.wholeShape.properties.object === 'Activity') {
-                        alert(Core.Agent.Admin.ProcessManagement.Localization.StartEventCapChange);
-                        window.setTimeout(function () {
-                            var Dummy;
-                            JointObject.disconnect('start');
-                            Dummy = JointObject._start;
-                            JointObject.replaceDummy(Dummy, Elements.StartEvent.wrapper);
-                            JointObject.addJoint(Elements.StartEvent.wrapper);
-
-                            if (!JointObject.isStartDummy() && !JointObject.isEndDummy()) {
-                                ChangeTransitionColor(JointObject, "#000");
-                            }
-                            JointObject.update();
-                        }, 100);
-                    }
-                    window.setTimeout(function () {
-                        if (!JointObject.isStartDummy() && !JointObject.isEndDummy()) {
-                            ChangeTransitionColor(JointObject, "#000");
-                            JointObject.update();
-                        }
-                    }, 200);
-                }
-                else {  // side === "end"
-                    // Handle end cap change
-                    EndActivity = this;
-                    if (EndActivity.wholeShape && EndActivity.wholeShape.properties && EndActivity.wholeShape.properties.object === 'Activity') {
-                        EndActivityID = EndActivity.wholeShape.properties.id;
-                        Config.Process[ProcessEntityID].StartActivity = EndActivityID;
-                    }
-
-                    window.setTimeout(function () {
-                        if (!JointObject.isStartDummy() && !JointObject.isEndDummy()) {
-                            ChangeTransitionColor(JointObject, "#000");
-                            JointObject.update();
-                        }
-                    }, 200);
-                }
-            });
-            InitObjectMoving();*/
         }
     };
 
@@ -464,7 +361,6 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
         var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
             ProcessEntityID = $('#ProcessEntityID').val(),
             Path = Config.Process[ProcessEntityID].Path,
-            LocalJointObject,
             StartActivity, EndActivity,
             OldActivity;
 
@@ -503,7 +399,14 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
                 [ "Arrow", { location: 0.75, width: 20, length: 12 } ],
                 [ "Label", { label: TransitionName, location: 0.5, cssClass: 'TransitionLabel', id: EntityID, events: {
                     mouseenter: function(labelOverlay, originalEvent) {
-                        TargetNS.InitDeleteTransition(labelOverlay);
+                        TargetNS.HighlightTransitionLabel(labelOverlay);
+                        originalEvent.stopPropagation();
+                        return false;
+                    },
+                    mouseexit: function(labelOverlay, originalEvent) {
+                        TargetNS.UnHighlightTransitionLabel(labelOverlay);
+                        originalEvent.stopPropagation();
+                        return false;
                     }
                 }}]
             ],
@@ -511,68 +414,55 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
                 "TransitionID": EntityID
             }
         });
-
-        Connection.bind('mouseenter', function() {
-            if (TargetNS.DragTransitionAction) {
-                TargetNS.DragTransitionActionTransition = {
-                    TransitionID: EntityID,
-                    StartActivity: StartElement
-                };
-                TargetNS.HighlightTransition(EntityID);
-            }
-        });
-
-        Connection.bind('mouseexit', function() {
-            if (TargetNS.DragTransitionAction) {
-                TargetNS.DragTransitionActionTransition = {};
-                TargetNS.HighlightTransition(EntityID);
-            }
-        });
     };
 
-    TargetNS.InitDeleteTransition = function(Connection) {
+    TargetNS.HighlightTransitionLabel = function(Connection) {
+
         var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
             ProcessEntityID = $('#ProcessEntityID').val(),
             Path = Config.Process[ProcessEntityID].Path,
-            StartActivity, Transition;
+            TransitionEntityID = Connection.id,
+            PopupPath = Core.Config.Get('Config.PopupPathPath') + "ProcessEntityID=" + ProcessEntityID + ";TransitionEntityID=" + TransitionEntityID,
+            StartActivityID = Connection.component.sourceId,
+            Transition;
+
+        if (TargetNS.DragTransitionAction) {
+            $(Connection.canvas).addClass('ReadyToDrop');
+            TargetNS.DragTransitionActionTransition = {
+                TransitionID: TransitionEntityID,
+                StartActivity: StartActivityID,
+                Connection: Connection
+            };
+        }
 
         if (!$(Connection.canvas).find('.Delete').length) {
-            $(Connection.canvas).append('<a class="Delete" href="#">x</a>').find('.Delete').bind('click', function() {
+            $(Connection.canvas).append('<a class="Delete" href="#">x</a>').find('.Delete').bind('click', function(Event) {
                 if (window.confirm(Core.Agent.Admin.ProcessManagement.Localization.RemoveTransitionMsg)) {
-                    StartActivity = Connection.component.sourceId;
-                    Transition    = Connection.id
                     jsPlumb.detach(Connection.component);
-                    delete Path[StartActivity][Transition];
+                    delete Path[StartActivityID][TransitionEntityID];
                 }
+                Event.stopPropagation();
                 return false;
             });
         }
-    };
+
+        $(Connection.canvas).bind('click', function(Event) {
+            Core.Agent.Admin.ProcessManagement.ShowOverlay();
+            Core.UI.Popup.OpenPopup(PopupPath, 'Path');
+            Event.stopPropagation();
+            return false;
+        });
+    }
+
+    TargetNS.UnHighlightTransitionLabel = function(Connection) {
+        if (TargetNS.DragTransitionAction) {
+            $(Connection.canvas).removeClass('ReadyToDrop');
+            TargetNS.DragTransitionActionTransition = {};
+        }
+    }
 
     TargetNS.DragTransitionAction = false;
     TargetNS.DragTransitionActionTransition = {};
-
-    TargetNS.HighlightTransition = function (EntityID) {
-        if (EntityID && Elements[EntityID]) {
-            $('#' + EntityID).setHover(true);
-        }
-        else {
-            $.each(jsPlumb.getConnections(), function(Index, Connection) {
-                Connection.setHover(true);
-            });
-        }
-    };
-
-    TargetNS.UnhighlightTransition = function (EntityID) {
-        if (EntityID && Elements[EntityID]) {
-            $('#' + EntityID).setHover(false);
-        }
-        else {
-            $.each(jsPlumb.getConnections(), function(Index, Connection) {
-                Connection.setHover(false);
-            });
-        }
-    };
 
     TargetNS.DrawDiagram = function () {
         var Config = Core.Agent.Admin.ProcessManagement.ProcessData,
@@ -738,7 +628,7 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
                 Data.connection.addOverlay([ "Arrow", { location: 0.25, width: 20, length: 12 } ]);
                 Data.connection.addOverlay([ "Arrow", { location: 0.75, width: 20, length: 12 } ]);
                 Data.connection.addOverlay([ "Label", { label: TransitionName, location: 0.5, cssClass: 'TransitionLabel', id: TransitionID, events: { mouseenter: function(labelOverlay, originalEvent) {
-                    TargetNS.InitDeleteTransition(labelOverlay);
+                    TargetNS.HighlightTransitionLabel(labelOverlay);
                 } } } ]);
             }
         });
