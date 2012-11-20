@@ -2,7 +2,7 @@
 // Core.Agent.Admin.ProcessManagement.js - provides the special module functions for the Process Management.
 // Copyright (C) 2001-2012 OTRS AG, http://otrs.org/
 // --
-// $Id: Core.Agent.Admin.ProcessManagement.js,v 1.58.2.3 2012-11-19 19:53:17 mab Exp $
+// $Id: Core.Agent.Admin.ProcessManagement.js,v 1.58.2.4 2012-11-20 07:34:20 mab Exp $
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -456,7 +456,10 @@ Core.Agent.Admin.ProcessManagement = (function (TargetNS) {
                     SourceID = $Source.closest('ul').attr('id');
 
                 if (SourceID === 'ActivityDialogs' || SourceID === 'Transitions') {
-                    UI.helper.css('z-index', 1000);
+
+                    // Set event flag
+                    TargetNS.Canvas.DragActivityItem = true;
+
                     $('#Canvas .Activity').addClass('Highlighted');
                 }
                 else if (SourceID === 'TransitionActions') {
@@ -475,6 +478,10 @@ Core.Agent.Admin.ProcessManagement = (function (TargetNS) {
                     SourceID = $Source.closest('ul').attr('id');
 
                 if (SourceID === 'ActivityDialogs' || SourceID === 'Transitions') {
+
+                    // Reset event flag
+                    TargetNS.Canvas.DragActivityItem = false;
+
                     $('#Canvas .Activity').removeClass('Highlighted');
                 }
                 else if (SourceID === 'TransitionActions') {

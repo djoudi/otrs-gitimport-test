@@ -2,7 +2,7 @@
 // Core.Agent.Admin.ProcessManagement.Canvas.js - provides the special module functions for the Process Management Diagram Canvas.
 // Copyright (C) 2001-2012 OTRS AG, http://otrs.org/
 // --
-// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.10 2012-11-19 19:53:17 mab Exp $
+// $Id: Core.Agent.Admin.ProcessManagement.Canvas.js,v 1.31.2.11 2012-11-20 07:34:20 mab Exp $
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -117,10 +117,13 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
             .bind('mouseenter.Activity', function() {
                 TargetNS.ShowActivityTooltip($(this));
                 TargetNS.ShowActivityDeleteButton($(this));
+                if (TargetNS.DragActivityItem) {
+                    $(this).addClass('ReadyToDrop');
+                }
             })
             .bind('mouseleave.Activity', function() {
                 $('#DiagramTooltip').hide();
-                $(this).find('.DiagramDeleteLink').remove();
+                $(this).removeClass('ReadyToDrop').find('.DiagramDeleteLink').remove();
             })
             .bind('dblclick.Activity', function() {
                 var Path = Core.Config.Get('Config.PopupPathActivity') + "EntityID=" + EntityID + ";ID=" + ActivityID;
@@ -446,7 +449,7 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
             });
         }
 
-        $(Connection.canvas).bind('click', function(Event) {
+        $(Connection.canvas).unbind('dblclick.Transition').bind('dblclick.Transition', function(Event) {
             Core.Agent.Admin.ProcessManagement.ShowOverlay();
             Core.UI.Popup.OpenPopup(PopupPath, 'Path');
             Event.stopPropagation();
@@ -461,6 +464,7 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
         }
     }
 
+    TargetNS.DragActivityItem = false;
     TargetNS.DragTransitionAction = false;
     TargetNS.DragTransitionActionTransition = {};
 
@@ -596,7 +600,7 @@ Core.Agent.Admin.ProcessManagement.Canvas = (function (TargetNS) {
             // and we need to mark it as "to be connected", so the user will
             // see that there is something to do with it
             else if (Data.targetId === 'Dummy') {
-                Data.connection.setPaintStyle({ strokeStyle: "red" });
+                Data.connection.setPaintStyle({ strokeStyle: "red", lineWidth: 4 });
             }
             else if (Data.targetId === Data.sourceId) {
                 return false;
